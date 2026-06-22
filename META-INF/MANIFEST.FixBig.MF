@@ -1,0 +1,3 @@
+Manifest-Version: 1.2
+Main-Class: msdmap.MapFixBig
+Class-Path: ../lib/json-20210307.jar

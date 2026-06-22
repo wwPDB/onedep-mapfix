@@ -1,0 +1,36 @@
+===== Program to read ccp4/MRC map volumes and correct the files
+
+Source:
+ * directory mdsmaps : contains classes for the four executables
+ * directory mdsmaps/mapread : contains main classes to read/write maps and headers
+
+Executables:
+ * MapTest: will read the header and data and return various stuff - readonly
+ * MapTestBig : is a version with limited functionality to manage huge maps
+ * MapFix:  will create a new map with data in
+ * MapFixBig:  will create a new map with data in for huge maps and limited functionality
+
+===== Compiling java and building the jar files
+
+Use "./MakeAll" in the main directory
+
+===== Running the program
+
+java -jar mapFix.jar .....   (-help will list all the run tim parameters)
+java -jar mapTest.jar .....  (no parameters will tell you what to do !)
+
+
+Example test to fix all the normal problems : creates "crap.map"
+java -jar mapFix.jar -in testmap/normal.map out testmap/crap.map -all
+
+Example to read a map  : no changes
+jara -jar mapTest.jar testmap/normal.map
+
+=====  Modifying the code
+
+Edit the version file to define the changes before checking
+msdmap/Version.java : code to define the version date
+
+==== More documentation
+
+http://internal-web-1:8000/index.php?title=The_map_header_detail

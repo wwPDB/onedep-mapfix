@@ -1,0 +1,14 @@
+#!/bin/sh
+#javac=$PACKAGE_DIR/java/jdk1.7/bin/javac
+#jar=$PACKAGE_DIR/java/jdk1.7/bin/jar
+
+#$javac  msdmap/mapread/*.java
+#[[ $? == "0" ]]  && $javac msdmap/*.java
+
+$javac -cp lib/json-20210307.jar  msdmap/*.java ./msdmap/mapread/*.java
+[[ $? != "0" ]] && exit
+
+source="msdmap/Version.class msdmap/GetArgs.class msdmap/DAInternals.class msdmap/mapread/*.class"
+$jar -cmvf META-INF/MANIFEST.FixDep.MF mapFixDep.jar msdmap/MapFixDep.class $source
+$jar -cmvf META-INF/MANIFEST.FixAnot.MF mapFixAnot.jar msdmap/MapFixAnot.class $source
+#$jar -cmvf META-INF/MANIFEST.TestBig.MF mapTestBig.jar msdmap/MapTestBig.class $source

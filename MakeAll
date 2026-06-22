@@ -1,0 +1,19 @@
+#!/bin/sh
+javac=/usr/bin/javac
+
+#$javac -cp $CLASSPATH msdmap/mapread/*.java
+#[[ $? == "0" ]]  && $javac -cp $CLASSPATH msdmap/*.java
+
+$javac -cp lib/json-20210307.jar  msdmap/*.java ./msdmap/mapread/*.java
+[[ $? != "0" ]] && exit
+
+echo "Done 1"
+source="msdmap/Version.class msdmap/GetArgs.class msdmap/mapread/*.class"
+jar -cmvf META-INF/MANIFEST.FixBig.MF mapFixBig.jar msdmap/MapFixBig.class $source
+jar -cmvf META-INF/MANIFEST.TestBig.MF mapTestBig.jar msdmap/MapTestBig.class $source
+jar -cmvf META-INF/MANIFEST.Fix.MF mapFix.jar msdmap/MapFix.class $source
+jar -cmvf META-INF/MANIFEST.Test.MF mapTest.jar msdmap/MapTest.class $source
+
+source="msdmap/Version.class msdmap/GetArgs.class msdmap/mapread/*.class msdmap/DAInternals.class"
+jar -cmvf META-INF/MANIFEST.FixDep.MF mapFixDep.jar msdmap/MapFixDep.class $source
+jar -cmvf META-INF/MANIFEST.FixAnot.MF mapFixAnot.jar msdmap/MapFixAnot.class $source
