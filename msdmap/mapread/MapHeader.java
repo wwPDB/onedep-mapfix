@@ -486,10 +486,34 @@ public class MapHeader {
   }
 
   public void changeLabel(String text) {
-    System.out.println(" Changing title to 1 line = <" + text + ">");
-    for (int i = text.length(); i < 80; i++) text = text + ' ';
-    label[0] = text;
+    System.out.println(" Changing title by prepending line = <" + text + ">");
+
+    if (label == null) label = new String[10];
+
+    String newLabel = formatLabel(text);
+    String newLabelTrimmed = newLabel.trim();
+    String oldLabel[] = label;
+    int oldNLabel = nLabel;
+
+    label = new String[10];
+    label[0] = newLabel;
     nLabel = 1;
+
+    for (int i = 0; i < oldNLabel && nLabel < 10; i++) {
+      if (oldLabel[i] == null) continue;
+      String oldLabelTrimmed = oldLabel[i].trim();
+      if (oldLabelTrimmed.length() == 0) continue;
+      if (oldLabelTrimmed.equals(newLabelTrimmed)) continue;
+      label[nLabel] = formatLabel(oldLabelTrimmed);
+      nLabel++;
+    }
+  }
+
+  private String formatLabel(String text) {
+    if (text == null) text = "";
+    if (text.length() > 80) text = text.substring(0,80);
+    for (int i = text.length(); i < 80; i++) text = text + ' ';
+    return text;
   }
 
   public void fixGridO(int x, int y, int z){
