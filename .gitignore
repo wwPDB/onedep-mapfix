@@ -1,0 +1,6 @@
+build/
+output/
+*.class
+mapFix*.jar
+mapTest*.jar
+
