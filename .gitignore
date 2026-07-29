@@ -1,6 +1,8 @@
 build/
 output/
+bin/
 *.class
 mapFix*.jar
 mapTest*.jar
+.vscode/
 
