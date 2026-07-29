@@ -520,7 +520,7 @@ public class MapHeader {
     label[0] = newLabel;
 
     int total = 1 + depositorLines.size();
-    if (total <= 10) {
+    if (total <= label.length) {
       // Normal case: nothing special - depositor lines just shift down in order.
       nLabel = 1;
       for (String d : depositorLines) {
@@ -528,21 +528,20 @@ public class MapHeader {
         nLabel++;
       }
     } else {
-      // Capacity exceeded (an 11th+ line would be needed): guarantee the very first
-      // depositor line survives on line 10, fill lines 2-8 with as many of the
-      // remaining depositor lines as fit, and annotate line 9 with a truncation
-      // warning appended to its own real content rather than sacrificing a whole
-      // line purely for metadata.
-      String originalLine = depositorLines.get(0);
-      java.util.List<String> remaining = depositorLines.subList(1, depositorLines.size());
+      // Capacity exceeded: natural in-order shifting already keeps the first depositor
+      // line safe at line 2, right after the system label. Fill as many depositor lines
+      // as fit in order, then annotate the last one that fits with its own content
+      // (ellipsis-truncated only as far as needed) plus a truncation warning about the
+      // rest, instead of silently dropping whatever doesn't fit.
+      int availableSlots = label.length - 1; // slots after the system label
+      int fullyFitCount = availableSlots - 1; // reserve the last slot for the annotated line
 
-      for (int k = 0; k < 7; k++) label[1 + k] = formatLabel(remaining.get(k)); // lines 2-8
+      for (int k = 0; k < fullyFitCount; k++) label[1 + k] = formatLabel(depositorLines.get(k));
 
-      int droppedCount = remaining.size() - 8; // items beyond the one annotated on line 9
-      label[8] = formatLabel(buildTruncationLine(remaining.get(7), droppedCount)); // line 9
+      int droppedCount = depositorLines.size() - availableSlots;
+      label[1 + fullyFitCount] = formatLabel(buildTruncationLine(depositorLines.get(fullyFitCount), droppedCount));
 
-      label[9] = formatLabel(originalLine); // line 10, always preserved
-      nLabel = 10;
+      nLabel = label.length;
     }
   }
 

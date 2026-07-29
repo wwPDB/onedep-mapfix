@@ -88,7 +88,7 @@ public class MapFixDepIntegrationTest {
   }
 
   @Test
-  void overflowFixtureReservesOriginalLineAndAnnotatesLineNine(@TempDir Path tempDir) throws Exception {
+  void overflowFixtureFillsNineLinesAndAnnotatesLineTen(@TempDir Path tempDir) throws Exception {
     File input = tempDir.resolve("overflow-input.map").toFile();
     String[] depositorLines = new String[10];
     for (int i = 0; i < 10; i++) depositorLines[i] = "Depositor line " + (i + 1);
@@ -100,11 +100,13 @@ public class MapFixDepIntegrationTest {
     MapHeader header = readLabels(out);
     assertEquals(10, header.getNLabels());
     assertEquals(MapHeader.makeSystemLabel("D_9999999999"), header.getLabel(0).trim());
-    for (int i = 0; i < 7; i++) {
-      assertEquals("Depositor line " + (i + 2), header.getLabel(1 + i).trim());
+    // Natural in-order shifting keeps the first depositor line safe at line 2, right
+    // after the system label - no special reservation needed.
+    for (int i = 0; i < 8; i++) {
+      assertEquals("Depositor line " + (i + 1), header.getLabel(1 + i).trim());
     }
-    assertTrue(header.getLabel(8).trim().contains("[TRUNCATED: 1 more line(s) removed]"));
-    assertEquals("Depositor line 1", header.getLabel(9).trim());
+    assertTrue(header.getLabel(9).trim().contains("[TRUNCATED: 1 more line(s) removed]"));
+    // "Depositor line 10" is the one line fully dropped - it appears nowhere.
   }
 
   @Test

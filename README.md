@@ -24,12 +24,14 @@ Rules for the remaining label lines:
   shifted down as if it were depositor content — this is what lets the final EMDB
   accession cleanly replace an earlier deposition ID without duplicating or losing
   real depositor lines.
-- The MRC format caps headers at 10 label lines. If the system label plus preserved
-  depositor lines would exceed that (an 11th line would be needed), the very first
-  depositor line is guaranteed a spot on line 10 rather than being silently dropped,
-  and line 9 is annotated in place — its own real content, ellipsis-truncated only as
+- The MRC format caps headers at 10 label lines. As long as the system label plus
+  preserved depositor lines fit within that, nothing special happens. If they don't
+  (an 11th line would be needed — only possible when depositor content already fills
+  all 10 slots), as many depositor lines as fit are kept untouched, and the last one
+  that fits is annotated in place — its own real content, ellipsis-truncated only as
   far as needed, followed by a `[TRUNCATED: N more line(s) removed]` notice — instead
-  of sacrificing a whole line purely for a notice.
+  of sacrificing a whole line purely for a notice or silently dropping whatever
+  doesn't fit.
 - An existing label identical to the new system label is not duplicated.
 
 This does not change upload milestone semantics or any OneDep Python workflow.

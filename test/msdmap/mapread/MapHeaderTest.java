@@ -27,7 +27,7 @@ public class MapHeaderTest {
   }
 
   @Test
-  void overflowReservesOriginalLineAndAnnotatesLineNine() throws Exception {
+  void overflowFillsNineLinesAndAnnotatesLineTen() throws Exception {
     String[] depositor = new String[10];
     for (int i = 0; i < 10; i++) depositor[i] = "Depositor line " + (i + 1);
     MapHeader header = withLabels(depositor);
@@ -36,17 +36,19 @@ public class MapHeaderTest {
 
     assertEquals(10, header.getNLabels());
     assertEquals(MapHeader.makeSystemLabel("D_1234567890"), header.getLabel(0).trim());
-    for (int i = 0; i < 7; i++) {
-      assertEquals("Depositor line " + (i + 2), header.getLabel(1 + i).trim());
+    // Natural in-order shifting keeps the first depositor line safe at line 2, right
+    // after the system label - no special reservation needed.
+    for (int i = 0; i < 8; i++) {
+      assertEquals("Depositor line " + (i + 1), header.getLabel(1 + i).trim());
     }
-    String lineNine = header.getLabel(8).trim();
-    assertTrue(lineNine.startsWith("Depositor line 9"));
-    assertTrue(lineNine.contains("[TRUNCATED: 1 more line(s) removed]"));
-    assertEquals("Depositor line 1", header.getLabel(9).trim());
+    String lineTen = header.getLabel(9).trim();
+    assertTrue(lineTen.startsWith("Depositor line 9"));
+    assertTrue(lineTen.contains("[TRUNCATED: 1 more line(s) removed]"));
+    // "Depositor line 10" is the one line fully dropped - it appears nowhere.
   }
 
   @Test
-  void overflowEllipsisTruncatesLongLineNineContent() throws Exception {
+  void overflowEllipsisTruncatesLongLineTenContent() throws Exception {
     String[] depositor = new String[10];
     for (int i = 0; i < 10; i++) depositor[i] = "Depositor line " + (i + 1);
     depositor[8] = "This depositor line nine is intentionally very long so it must be "
@@ -55,11 +57,11 @@ public class MapHeaderTest {
 
     header.changeLabel(MapHeader.makeSystemLabel("D_1234567890"));
 
-    String lineNine = header.getLabel(8).trim();
-    assertTrue(lineNine.length() <= 80);
-    assertTrue(lineNine.startsWith("This depositor line nine"));
-    assertTrue(lineNine.contains("..."));
-    assertTrue(lineNine.endsWith("[TRUNCATED: 1 more line(s) removed]"));
+    String lineTen = header.getLabel(9).trim();
+    assertTrue(lineTen.length() <= 80);
+    assertTrue(lineTen.startsWith("This depositor line nine"));
+    assertTrue(lineTen.contains("..."));
+    assertTrue(lineTen.endsWith("[TRUNCATED: 1 more line(s) removed]"));
   }
 
   @Test
