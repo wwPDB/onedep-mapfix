@@ -36,9 +36,79 @@ Rules for the remaining label lines:
 
 This does not change upload milestone semantics or any OneDep Python workflow.
 
+### Examples
+
+**Overflow.** A map whose original depositor content already fills all 10 label slots:
+
+```text
+1. Relion reconstruction metadata
+2. Depositor note 2
+3. Depositor note 3
+4. Depositor note 4
+5. Depositor note 5
+6. Depositor note 6
+7. Depositor note 7
+8. Depositor note 8
+9. Depositor note 9
+10. Depositor note 10
+```
+
+Running `-label D_1234567890` produces:
+
+```text
+Line 1:  ::::EMDATABANK.org::::D_1234567890::::
+Line 2:  Relion reconstruction metadata
+Line 3:  Depositor note 2
+Line 4:  Depositor note 3
+Line 5:  Depositor note 4
+Line 6:  Depositor note 5
+Line 7:  Depositor note 6
+Line 8:  Depositor note 7
+Line 9:  Depositor note 8
+Line 10: Depositor note 9 [TRUNCATED: 1 more line(s) removed]
+```
+
+"Depositor note 10" is the one line fully dropped, silently — accounted for only by
+the "1 more line(s) removed" count on line 10.
+
+**Pre-existing system labels.** The rule is always the same regardless of *why* a
+system-style label is already there: the existing wrapped line is discarded, and the
+new label passed to `-label` is always written to line 1.
+
+- *Same deposition ID re-uploaded* — file already has
+  `::::EMDATABANK.org::::D_1234567890::::` on line 1, run again with
+  `-label D_1234567890`: the old line matches the new one exactly, so it's simply not
+  duplicated. No effective change.
+- *Different deposition ID* (a depositor reuses a map from a separate, earlier
+  deposition of theirs) — file has `::::EMDATABANK.org::::D_1123581321::::` on line 1
+  and `Relion reconstruction metadata` on line 2, run with `-label D_1234567890`:
+
+  ```text
+  Line 1: ::::EMDATABANK.org::::D_1234567890::::
+  Line 2: Relion reconstruction metadata
+  ```
+
+  `D_1123581321` is gone with no trace and no warning — this isn't a truncation case,
+  just the ordinary supersession rule.
+- *A map already annotated re-enters the same deposition* — `mapFixAnot.jar` (the
+  annotation-stage tool, sharing this same `-label` mechanism) already stamped
+  `::::EMDATABANK.org::::EMD-1620::::` on line 1 during annotation, with
+  `ChimeraX 0.1 Wed Jan 21 12:53:36 2026` on line 2. The depositor re-uploads that same
+  file back into the same deposition, and it's run again with `-label D_9999999999`:
+
+  ```text
+  Line 1: ::::EMDATABANK.org::::D_9999999999::::
+  Line 2: ChimeraX 0.1 Wed Jan 21 12:53:36 2026
+  ```
+
+  The annotation stage's `EMD-1620` label is superseded the same way a deposition ID
+  supersedes an earlier one — any prior EMDataBank-style label is always treated as
+  disposable system bookkeeping from an earlier processing stage, never as
+  depositor-authored content.
+
 ## Build
 
-Build inside the OneDep Vagrant VM or any environment with the same toolchain layout:
+Build with the same JDK OneDep's own build uses:
 
 ```bash
 ./scripts/build-mapfixdep.sh
