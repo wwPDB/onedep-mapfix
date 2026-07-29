@@ -3,6 +3,4 @@ blank_upload	sample-data/D_1292111988_em-volume-upload_P1.map.V1	D_1292111988	1.
 relion_upload	sample-data/D_1292121466_em-volume-upload_P1.map.V1	D_1292121466	1.2194290161132812	1.2194290161132812	1.2194290161132812	system label; Relion label
 system_label_input	sample-data/D_1292121466_em-volume-upload_P1.map.V2	D_1292121466	1.2194000482559204	1.2194000482559204	1.2194000482559204	system label only; no duplicate
 chimerax_upload	sample-data/D_1292153729_em-volume-upload_P1.map.V1	D_1292153729	1.384615421295166	1.384615421295166	1.384615421295166	system label; ChimeraX label
-generated_multi_label	sample-data/generated/multi-label.map	D_9999999999	1.0	1.0	1.0	system label; original lines shifted down
-generated_long_label	sample-data/generated/long-label.map	D_9999999999	1.0	1.0	1.0	system label; original label content best-effort
 
