@@ -485,6 +485,17 @@ public class MapHeader {
     
   }
 
+  public static final String SYSTEM_LABEL_PREFIX = "::::EMDATABANK.org::::";
+  public static final String SYSTEM_LABEL_SUFFIX  = "::::";
+
+  public static String makeSystemLabel(String text) {
+    return SYSTEM_LABEL_PREFIX + text + SYSTEM_LABEL_SUFFIX;
+  }
+
+  private static boolean isSystemGenerated(String trimmed) {
+    return trimmed.startsWith("::::") && trimmed.endsWith("::::");
+  }
+
   public void changeLabel(String text) {
     System.out.println(" Changing title by prepending line = <" + text + ">");
 
@@ -495,18 +506,51 @@ public class MapHeader {
     String oldLabel[] = label;
     int oldNLabel = nLabel;
 
+    java.util.List<String> depositorLines = new java.util.ArrayList<String>();
+    for (int i = 0; i < oldNLabel; i++) {
+      if (oldLabel[i] == null) continue;
+      String t = oldLabel[i].trim();
+      if (t.length() == 0) continue;
+      if (t.equals(newLabelTrimmed)) continue;
+      if (isSystemGenerated(t)) continue; // superseded system label - never preserved
+      depositorLines.add(t);
+    }
+
     label = new String[10];
     label[0] = newLabel;
-    nLabel = 1;
 
-    for (int i = 0; i < oldNLabel && nLabel < 10; i++) {
-      if (oldLabel[i] == null) continue;
-      String oldLabelTrimmed = oldLabel[i].trim();
-      if (oldLabelTrimmed.length() == 0) continue;
-      if (oldLabelTrimmed.equals(newLabelTrimmed)) continue;
-      label[nLabel] = formatLabel(oldLabelTrimmed);
-      nLabel++;
+    int total = 1 + depositorLines.size();
+    if (total <= 10) {
+      // Normal case: nothing special - depositor lines just shift down in order.
+      nLabel = 1;
+      for (String d : depositorLines) {
+        label[nLabel] = formatLabel(d);
+        nLabel++;
+      }
+    } else {
+      // Capacity exceeded (an 11th+ line would be needed): guarantee the very first
+      // depositor line survives on line 10, fill lines 2-8 with as many of the
+      // remaining depositor lines as fit, and annotate line 9 with a truncation
+      // warning appended to its own real content rather than sacrificing a whole
+      // line purely for metadata.
+      String originalLine = depositorLines.get(0);
+      java.util.List<String> remaining = depositorLines.subList(1, depositorLines.size());
+
+      for (int k = 0; k < 7; k++) label[1 + k] = formatLabel(remaining.get(k)); // lines 2-8
+
+      int droppedCount = remaining.size() - 8; // items beyond the one annotated on line 9
+      label[8] = formatLabel(buildTruncationLine(remaining.get(7), droppedCount)); // line 9
+
+      label[9] = formatLabel(originalLine); // line 10, always preserved
+      nLabel = 10;
     }
+  }
+
+  private String buildTruncationLine(String content, int droppedCount) {
+    String suffix = " [TRUNCATED: " + droppedCount + " more line(s) removed]";
+    int budget = Math.max(0, 80 - suffix.length() - 3); // 3 chars reserved for "..."
+    String shown = content.length() > budget ? content.substring(0, budget) + "..." : content;
+    return shown + suffix;
   }
 
   private String formatLabel(String text) {

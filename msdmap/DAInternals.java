@@ -93,7 +93,7 @@ public class DAInternals {
             mapHeader.fixSpaceGroup();
             mapHeader.fixMapType();
             if (getArgs.fixLabel){
-                mapHeader.changeLabel("::::EMDATABANK.org::::"+ getArgs.text + "::::");
+                mapHeader.changeLabel(MapHeader.makeSystemLabel(getArgs.text));
             }
             mapHeader.autoFixCellAngle();
 
