@@ -47,6 +47,14 @@ public class MapFixDepIntegrationTest {
         "expected a demoted history entry for <" + expectedId + "> but was <" + actual + ">");
   }
 
+  private static void assertDemotedFormWithTally(String actual, String expectedId, int expectedTally) {
+    String pattern = "^::::\\d{14}::::" + java.util.regex.Pattern.quote(expectedId)
+        + ":::: \\[TRUNCATED: " + expectedTally + " more line\\(s\\) removed\\]$";
+    assertTrue(actual.matches(pattern),
+        "expected a demoted history entry for <" + expectedId + "> with tally " + expectedTally
+        + " but was <" + actual + ">");
+  }
+
   @Test
   void relionUploadKeepsDepositorLabelAfterSystemLabel(@TempDir Path tempDir) throws Exception {
     String out = tempDir.resolve("relion.converted.map").toString();
@@ -131,5 +139,33 @@ public class MapFixDepIntegrationTest {
     assertEquals(MapHeader.makeSystemLabel("EMD-999999"), header.getLabel(0).trim());
     assertDemotedForm(header.getLabel(1).trim(), "D_9999999999");
     assertEquals("ChimeraX 0.1 Wed Jan 21 12:53:36 2026", header.getLabel(2).trim());
+  }
+
+  @Test
+  void evictionTallyAccumulatesAcrossMultipleRealRuns(@TempDir Path tempDir) throws Exception {
+    File input = tempDir.resolve("eviction-input.map").toFile();
+    String[] depositorLines = new String[8];
+    for (int i = 0; i < 8; i++) depositorLines[i] = "Depositor line " + (i + 1);
+    TestFixtures.writeFixture(input, depositorLines);
+
+    String out1 = tempDir.resolve("round1.map").toString();
+    runMapFixDep(input.getPath(), out1, "1.0", "D_1"); // no history yet
+
+    String out2 = tempDir.resolve("round2.map").toString();
+    runMapFixDep(out1, out2, "1.0", "D_2"); // fits exactly (10), no eviction
+
+    String out3 = tempDir.resolve("round3.map").toString();
+    runMapFixDep(out2, out3, "1.0", "D_3"); // evicts D_1 -> D_2 tally=1
+
+    String out4 = tempDir.resolve("round4.map").toString();
+    runMapFixDep(out3, out4, "1.0", "D_4"); // evicts D_2(tally=1) -> D_3 tally=2
+
+    MapHeader header = readLabels(out4);
+    assertEquals(10, header.getNLabels());
+    assertEquals(MapHeader.makeSystemLabel("D_4"), header.getLabel(0).trim());
+    assertDemotedFormWithTally(header.getLabel(1).trim(), "D_3", 2);
+    for (int i = 0; i < 8; i++) {
+      assertEquals("Depositor line " + (i + 1), header.getLabel(2 + i).trim());
+    }
   }
 }

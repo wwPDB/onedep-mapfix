@@ -496,7 +496,10 @@ public class MapHeader {
   }
 
   private static boolean isSystemGenerated(String trimmed) {
-    return trimmed.startsWith("::::") && trimmed.endsWith("::::");
+    // Only checks the prefix: a tallied history entry (see withEvictionTally) has a
+    // truncation notice trailing after its closing "::::", so it no longer ends with
+    // "::::" - it must still be recognized as system-generated on future calls.
+    return trimmed.startsWith("::::");
   }
 
   private static boolean isCurrentSystemLabel(String trimmed) {
@@ -512,6 +515,33 @@ public class MapHeader {
   private static String demoteToHistory(String id) {
     String timestamp = java.time.LocalDateTime.now().format(DEMOTION_TIMESTAMP_FORMAT);
     return "::::" + timestamp + "::::" + id + SYSTEM_LABEL_SUFFIX;
+  }
+
+  private static final String EVICTION_TALLY_MARKER = " [TRUNCATED: ";
+
+  private static String truncationSuffix(int droppedCount) {
+    return EVICTION_TALLY_MARKER + droppedCount + " more line(s) removed]";
+  }
+
+  private static int extractEvictionTally(String historyEntryTrimmed) {
+    int marker = historyEntryTrimmed.indexOf(EVICTION_TALLY_MARKER);
+    if (marker < 0) return 0;
+    int numStart = marker + EVICTION_TALLY_MARKER.length();
+    int numEnd = historyEntryTrimmed.indexOf(' ', numStart);
+    return Integer.parseInt(historyEntryTrimmed.substring(numStart, numEnd));
+  }
+
+  private static String withEvictionTally(String historyEntryTrimmed, int tally) {
+    // Strip any existing "::::<id>:::: [TRUNCATED: ...]" trailer, keeping just the
+    // formal "::::<timestamp>::::<id>::::" wrapper, before appending the new count.
+    int marker = historyEntryTrimmed.indexOf(EVICTION_TALLY_MARKER);
+    String wrapped = marker < 0 ? historyEntryTrimmed : historyEntryTrimmed.substring(0, marker);
+    String prefix = wrapped.substring(0, SYSTEM_LABEL_PREFIX.length());
+    String bareId = wrapped.substring(SYSTEM_LABEL_PREFIX.length(), wrapped.length() - SYSTEM_LABEL_SUFFIX.length());
+    String suffix = truncationSuffix(tally);
+    int budget = Math.max(0, 80 - prefix.length() - SYSTEM_LABEL_SUFFIX.length() - suffix.length() - 3);
+    String shownId = bareId.length() > budget ? bareId.substring(0, budget) + "..." : bareId;
+    return prefix + shownId + SYSTEM_LABEL_SUFFIX + suffix;
   }
 
   public void changeLabel(String text) {
@@ -548,8 +578,15 @@ public class MapHeader {
     label = new String[10];
     label[0] = newLabel;
 
+    int evictedTally = 0;
     while (!history.isEmpty() && 1 + history.size() + depositorLines.size() > label.length) {
-      history.remove(history.size() - 1); // evict oldest (nearest depositor content) first
+      String evicted = history.remove(history.size() - 1); // evict oldest (nearest depositor content) first
+      evictedTally += extractEvictionTally(evicted) + 1;
+    }
+    if (evictedTally > 0 && !history.isEmpty()) {
+      int survivorIdx = history.size() - 1; // new oldest, sitting nearest the depositor content
+      int totalTally = extractEvictionTally(history.get(survivorIdx)) + evictedTally;
+      history.set(survivorIdx, withEvictionTally(history.get(survivorIdx), totalTally));
     }
     int want = 1 + history.size() + depositorLines.size();
 
@@ -580,7 +617,7 @@ public class MapHeader {
   }
 
   private String buildTruncationLine(String content, int droppedCount) {
-    String suffix = " [TRUNCATED: " + droppedCount + " more line(s) removed]";
+    String suffix = truncationSuffix(droppedCount);
     int budget = Math.max(0, 80 - suffix.length() - 3); // 3 chars reserved for "..."
     String shown = content.length() > budget ? content.substring(0, budget) + "..." : content;
     return shown + suffix;

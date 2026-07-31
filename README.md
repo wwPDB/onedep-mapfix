@@ -35,14 +35,20 @@ Rules for the remaining label lines:
   newest first, but never at the expense of the current label (line 1) or the
   depositor's own content: the MRC format's 10-line cap means the change-log is
   evicted oldest-first (one entry at a time, starting with whichever sits closest
-  to the depositor content) as needed to keep both of those intact. Only once the
-  *entire* change-log has been evicted and it's still over capacity — only possible
-  when depositor content alone already fills all 10 slots, with no ID history
-  involved at all — does the depositor-overflow fallback kick in: as many depositor
-  lines as fit are kept untouched, and the last one that fits is annotated in place
-  — its own real content, ellipsis-truncated only as far as needed, followed by a
-  `[TRUNCATED: N more line(s) removed]` notice — instead of sacrificing a whole line
-  purely for a notice or silently dropping whatever doesn't fit.
+  to the depositor content) as needed to keep both of those intact. Eviction isn't
+  silent: the entry that ends up as the new oldest survivor gets a
+  `[TRUNCATED: N more line(s) removed]` notice trailing after its own closing
+  `::::`, where `N` is the *cumulative* count of IDs evicted from this map's history
+  over its entire lifetime (not just this one relabeling) — each time a further
+  eviction happens, whatever count the outgoing entry already carried is added to the
+  running total before it's re-embedded on whichever entry survives next. Only once
+  the *entire* change-log has been evicted and it's still over capacity — only
+  possible when depositor content alone already fills all 10 slots, with no ID
+  history involved at all — does the depositor-overflow fallback kick in: as many
+  depositor lines as fit are kept untouched, and the last one that fits is annotated
+  in place — its own real content, ellipsis-truncated only as far as needed, followed
+  by the same `[TRUNCATED: N more line(s) removed]` notice — instead of sacrificing a
+  whole line purely for a notice or silently dropping whatever doesn't fit.
 
 This does not change upload milestone semantics or any OneDep Python workflow.
 
@@ -136,7 +142,7 @@ all 8 depositor lines and the current label:
 
 ```text
 Line 1:  ::::EMDATABANK.org::::D_1123581321::::
-Line 2:  ::::<timestamp>::::EMD-1620::::
+Line 2:  ::::<timestamp>::::EMD-1620:::: [TRUNCATED: 1 more line(s) removed]
 Line 3:  Relion    21-Mar-21  22:48:12
 Line 4:  cryoSPARC v4.4 non-uniform refinement job 231
 Line 5:  UCSF ChimeraX volume rendering session
@@ -150,9 +156,30 @@ Line 10: Xmipp 3.24.06 3D classification run
 Line 1 (current) and all 8 depositor lines are never evicted. The *old*
 `D_1123581321` change-log entry — from when it was first superseded by `EMD-1620` —
 is the oldest entry, sitting immediately above the depositor content, so it's the
-one evicted to make room for `EMD-1620`'s own demotion. The freshly re-stamped
-`D_1123581321` on line 1 is untouched — eviction only ever removes change-log
-entries, never the current line.
+one evicted to make room for `EMD-1620`'s own demotion, and its loss is recorded as
+the `1` in the surviving `EMD-1620` entry's notice rather than vanishing without a
+trace. The freshly re-stamped `D_1123581321` on line 1 is untouched — eviction only
+ever removes change-log entries, never the current line.
+
+Two more relabeling rounds (`-label EMD-1620`, then `-label D_1123581321` again)
+each evict the same way, and the notice's count keeps accumulating rather than
+resetting:
+
+```text
+Line 1:  ::::EMDATABANK.org::::EMD-1620::::
+Line 2:  ::::<timestamp>::::D_1123581321:::: [TRUNCATED: 2 more line(s) removed]
+Line 3-10: (unchanged - the same 8 depositor lines)
+```
+
+```text
+Line 1:  ::::EMDATABANK.org::::D_1123581321::::
+Line 2:  ::::<timestamp>::::EMD-1620:::: [TRUNCATED: 3 more line(s) removed]
+Line 3-10: (unchanged - the same 8 depositor lines)
+```
+
+The `3` reflects all three IDs evicted across this map's full history so far (the
+first `D_1123581321`, then `EMD-1620`, then `D_1123581321` again) — not just
+whichever single eviction happened most recently.
 
 ## Build
 
