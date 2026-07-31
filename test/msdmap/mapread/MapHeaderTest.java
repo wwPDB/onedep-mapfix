@@ -15,6 +15,12 @@ public class MapHeaderTest {
     return header;
   }
 
+  private static void assertDemotedForm(String actual, String expectedId) {
+    String pattern = "^::::\\d{14}::::" + java.util.regex.Pattern.quote(expectedId) + "::::$";
+    assertTrue(actual.matches(pattern),
+        "expected a demoted history entry for <" + expectedId + "> but was <" + actual + ">");
+  }
+
   @Test
   void normalPrependShiftsDepositorLinesDown() throws Exception {
     MapHeader header = withLabels("Relion reconstruction metadata", "Second depositor line");
@@ -65,16 +71,66 @@ public class MapHeaderTest {
   }
 
   @Test
-  void systemLabelIsReplacedNotShifted() throws Exception {
+  void systemLabelIsDemotedToHistory() throws Exception {
     MapHeader header = withLabels(
         MapHeader.makeSystemLabel("D_1234567890"),
         "ChimeraX 0.1 Wed Jan 21 12:53:36 2026");
 
     header.changeLabel(MapHeader.makeSystemLabel("EMD-112358"));
 
-    assertEquals(2, header.getNLabels());
+    assertEquals(3, header.getNLabels());
     assertEquals(MapHeader.makeSystemLabel("EMD-112358"), header.getLabel(0).trim());
-    assertEquals("ChimeraX 0.1 Wed Jan 21 12:53:36 2026", header.getLabel(1).trim());
+    assertDemotedForm(header.getLabel(1).trim(), "D_1234567890");
+    assertEquals("ChimeraX 0.1 Wed Jan 21 12:53:36 2026", header.getLabel(2).trim());
+  }
+
+  @Test
+  void relabelingWithSameIdIsNoOpAndAddsNoHistoryEntry() throws Exception {
+    MapHeader header = withLabels("Relion reconstruction metadata");
+
+    header.changeLabel(MapHeader.makeSystemLabel("D_100"));
+    header.changeLabel(MapHeader.makeSystemLabel("D_100"));
+
+    assertEquals(2, header.getNLabels());
+    assertEquals(MapHeader.makeSystemLabel("D_100"), header.getLabel(0).trim());
+    assertEquals("Relion reconstruction metadata", header.getLabel(1).trim());
+  }
+
+  @Test
+  void multipleRelabelingRoundsBuildHistoryNewestFirst() throws Exception {
+    MapHeader header = withLabels("Relion reconstruction metadata", "Second depositor line");
+
+    header.changeLabel(MapHeader.makeSystemLabel("D_100"));
+    header.changeLabel(MapHeader.makeSystemLabel("EMD-50"));
+    header.changeLabel(MapHeader.makeSystemLabel("D_200"));
+    header.changeLabel(MapHeader.makeSystemLabel("EMD-99"));
+
+    assertEquals(6, header.getNLabels());
+    assertEquals(MapHeader.makeSystemLabel("EMD-99"), header.getLabel(0).trim());
+    assertDemotedForm(header.getLabel(1).trim(), "D_200");
+    assertDemotedForm(header.getLabel(2).trim(), "EMD-50");
+    assertDemotedForm(header.getLabel(3).trim(), "D_100");
+    assertEquals("Relion reconstruction metadata", header.getLabel(4).trim());
+    assertEquals("Second depositor line", header.getLabel(5).trim());
+  }
+
+  @Test
+  void historyEvictsOldestEntryFirstWhileProtectingCurrentAndDepositorLines() throws Exception {
+    String[] depositor = new String[8];
+    for (int i = 0; i < 8; i++) depositor[i] = "Depositor line " + (i + 1);
+    MapHeader header = withLabels(depositor);
+
+    header.changeLabel(MapHeader.makeSystemLabel("D_1")); // no history yet
+    header.changeLabel(MapHeader.makeSystemLabel("D_2")); // demotes D_1 - fits exactly (10)
+    header.changeLabel(MapHeader.makeSystemLabel("D_3")); // demotes D_2 - D_1's entry is evicted
+
+    assertEquals(10, header.getNLabels());
+    assertEquals(MapHeader.makeSystemLabel("D_3"), header.getLabel(0).trim());
+    assertDemotedForm(header.getLabel(1).trim(), "D_2");
+    // demoted(D_1) was evicted (oldest, nearest the depositor content) - it appears nowhere.
+    for (int i = 0; i < 8; i++) {
+      assertEquals("Depositor line " + (i + 1), header.getLabel(2 + i).trim());
+    }
   }
 
   @Test

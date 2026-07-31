@@ -488,12 +488,30 @@ public class MapHeader {
   public static final String SYSTEM_LABEL_PREFIX = "::::EMDATABANK.org::::";
   public static final String SYSTEM_LABEL_SUFFIX  = "::::";
 
+  private static final java.time.format.DateTimeFormatter DEMOTION_TIMESTAMP_FORMAT =
+      java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+
   public static String makeSystemLabel(String text) {
     return SYSTEM_LABEL_PREFIX + text + SYSTEM_LABEL_SUFFIX;
   }
 
   private static boolean isSystemGenerated(String trimmed) {
     return trimmed.startsWith("::::") && trimmed.endsWith("::::");
+  }
+
+  private static boolean isCurrentSystemLabel(String trimmed) {
+    return trimmed.startsWith(SYSTEM_LABEL_PREFIX) && trimmed.endsWith(SYSTEM_LABEL_SUFFIX);
+  }
+
+  private static String extractSystemId(String currentFormTrimmed) {
+    return currentFormTrimmed.substring(
+        SYSTEM_LABEL_PREFIX.length(),
+        currentFormTrimmed.length() - SYSTEM_LABEL_SUFFIX.length());
+  }
+
+  private static String demoteToHistory(String id) {
+    String timestamp = java.time.LocalDateTime.now().format(DEMOTION_TIMESTAMP_FORMAT);
+    return "::::" + timestamp + "::::" + id + SYSTEM_LABEL_SUFFIX;
   }
 
   public void changeLabel(String text) {
@@ -506,33 +524,49 @@ public class MapHeader {
     String oldLabel[] = label;
     int oldNLabel = nLabel;
 
+    java.util.List<String> history = new java.util.ArrayList<String>();
     java.util.List<String> depositorLines = new java.util.ArrayList<String>();
+    boolean demoteOldCurrent = false;
+    String demotedEntry = null;
+
     for (int i = 0; i < oldNLabel; i++) {
       if (oldLabel[i] == null) continue;
       String t = oldLabel[i].trim();
       if (t.length() == 0) continue;
-      if (t.equals(newLabelTrimmed)) continue;
-      if (isSystemGenerated(t)) continue; // superseded system label - never preserved
+      if (t.equals(newLabelTrimmed)) continue; // dedupe against the new value
+      if (i == 0 && isCurrentSystemLabel(t)) {
+        demoteOldCurrent = true;
+        demotedEntry = demoteToHistory(extractSystemId(t));
+        continue;
+      }
+      if (isSystemGenerated(t)) { history.add(t); continue; }
       depositorLines.add(t);
     }
+
+    if (demoteOldCurrent) history.add(0, demotedEntry); // newest first
 
     label = new String[10];
     label[0] = newLabel;
 
-    int total = 1 + depositorLines.size();
-    if (total <= label.length) {
-      // Normal case: nothing special - depositor lines just shift down in order.
-      nLabel = 1;
-      for (String d : depositorLines) {
-        label[nLabel] = formatLabel(d);
-        nLabel++;
-      }
+    while (!history.isEmpty() && 1 + history.size() + depositorLines.size() > label.length) {
+      history.remove(history.size() - 1); // evict oldest (nearest depositor content) first
+    }
+    int want = 1 + history.size() + depositorLines.size();
+
+    int idx = 1;
+    if (want <= label.length) {
+      // Everything fits: history (newest first) then depositor lines, in order.
+      for (String h : history) { label[idx] = formatLabel(h); idx++; }
+      for (String d : depositorLines) { label[idx] = formatLabel(d); idx++; }
+      nLabel = idx;
     } else {
-      // Capacity exceeded: natural in-order shifting already keeps the first depositor
-      // line safe at line 2, right after the system label. Fill as many depositor lines
-      // as fit in order, then annotate the last one that fits with its own content
-      // (ellipsis-truncated only as far as needed) plus a truncation warning about the
-      // rest, instead of silently dropping whatever doesn't fit.
+      // History is fully evicted (by the loop above) and it's still over capacity:
+      // same depositor-overflow fallback as before - natural in-order shifting keeps
+      // the first depositor line safe at line 2, right after the system label. Fill
+      // as many depositor lines as fit in order, then annotate the last one that fits
+      // with its own content (ellipsis-truncated only as far as needed) plus a
+      // truncation warning about the rest, instead of silently dropping whatever
+      // doesn't fit.
       int availableSlots = label.length - 1; // slots after the system label
       int fullyFitCount = availableSlots - 1; // reserve the last slot for the annotated line
 

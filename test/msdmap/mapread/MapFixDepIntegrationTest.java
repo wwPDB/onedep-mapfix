@@ -41,6 +41,12 @@ public class MapFixDepIntegrationTest {
     return header;
   }
 
+  private static void assertDemotedForm(String actual, String expectedId) {
+    String pattern = "^::::\\d{14}::::" + java.util.regex.Pattern.quote(expectedId) + "::::$";
+    assertTrue(actual.matches(pattern),
+        "expected a demoted history entry for <" + expectedId + "> but was <" + actual + ">");
+  }
+
   @Test
   void relionUploadKeepsDepositorLabelAfterSystemLabel(@TempDir Path tempDir) throws Exception {
     String out = tempDir.resolve("relion.converted.map").toString();
@@ -77,14 +83,15 @@ public class MapFixDepIntegrationTest {
   }
 
   @Test
-  void alreadySystemLabelledInputIsReplacedNotDuplicated(@TempDir Path tempDir) throws Exception {
+  void alreadySystemLabelledInputDemotesOldIdToHistory(@TempDir Path tempDir) throws Exception {
     String out = tempDir.resolve("relabel.converted.map").toString();
     runMapFixDep("sample-data/D_1292121466_em-volume-upload_P1.map.V2", out,
         "1.2194000482559204", "EMD-112358");
 
     MapHeader header = readLabels(out);
-    assertEquals(1, header.getNLabels());
+    assertEquals(2, header.getNLabels());
     assertEquals(MapHeader.makeSystemLabel("EMD-112358"), header.getLabel(0).trim());
+    assertDemotedForm(header.getLabel(1).trim(), "D_1292121466");
   }
 
   @Test
@@ -110,7 +117,7 @@ public class MapFixDepIntegrationTest {
   }
 
   @Test
-  void replacementFixtureSwapsSystemLabelWithoutLosingDepositorLine(@TempDir Path tempDir) throws Exception {
+  void replacementFixtureDemotesOldSystemLabelWithoutLosingDepositorLine(@TempDir Path tempDir) throws Exception {
     File input = tempDir.resolve("replacement-input.map").toFile();
     TestFixtures.writeFixture(input,
         MapHeader.makeSystemLabel("D_9999999999"),
@@ -120,8 +127,9 @@ public class MapFixDepIntegrationTest {
     runMapFixDep(input.getPath(), out, "1.0", "EMD-999999");
 
     MapHeader header = readLabels(out);
-    assertEquals(2, header.getNLabels());
+    assertEquals(3, header.getNLabels());
     assertEquals(MapHeader.makeSystemLabel("EMD-999999"), header.getLabel(0).trim());
-    assertEquals("ChimeraX 0.1 Wed Jan 21 12:53:36 2026", header.getLabel(1).trim());
+    assertDemotedForm(header.getLabel(1).trim(), "D_9999999999");
+    assertEquals("ChimeraX 0.1 Wed Jan 21 12:53:36 2026", header.getLabel(2).trim());
   }
 }
