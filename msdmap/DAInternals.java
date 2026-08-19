@@ -25,7 +25,7 @@ public class DAInternals {
     static List<String> warnings = new ArrayList<String>();
     static Map<String, String> headerIn = new HashMap<String, String>();
     static Map<String, String> headerOut = new HashMap<String, String>();
-    static Map<String, String> headerOutLong = new HashMap<String, String>();
+    static Map<String, Object> headerOutLong = new HashMap<String, Object>();
     static int[] histogramInValues = null;
     static float[] histogramInCategories = null;
     static int[] histogramOutValues = null;
@@ -295,7 +295,7 @@ public class DAInternals {
         PrintJsonAndExit(0);
     }
 
-    static void StoreHeaderLong(Map<String, String>store, MapHeader header) throws Exception{
+    static void StoreHeaderLong(Map<String, Object>store, MapHeader header) throws Exception{
         if(header.getEndian() == 1){
             store.put("endian_type", "big");
         }
@@ -303,13 +303,14 @@ public class DAInternals {
             store.put("endian_type", "little");
         }
 
-        String label = new String();
         int nLabel = header.getNLabels();
+        // "label_block" is every label line the header declares in use (its own NLABL
+        // count), one array entry per line, raw MRC padding included - a real JSON
+        // array rather than a joined string, so no future consumer has to split it
+        // back apart at fixed-width boundaries to get individual lines out.
+        List<String> labelBlock = new ArrayList<String>();
         for (int i = 0; i < nLabel; ++i){
-            label += header.getLabel(i).replaceAll("\\p{Cntrl}", "");
-            if( i < nLabel -1 ){
-                label += " ";
-            }
+            labelBlock.add(header.getLabel(i).replaceAll("\\p{Cntrl}", ""));
         }
         // "label" is the current label only, matching what actually gets written to
         // _em_map.label downstream - the full block (current + changelog + depositor
@@ -317,7 +318,7 @@ public class DAInternals {
         // that just want the current value don't have to parse it back out of a blob.
         String currentLabel = nLabel > 0 ? header.getLabel(0).replaceAll("\\p{Cntrl}", "") : "";
         store.put("label", currentLabel);
-        store.put("label_block", label);
+        store.put("label_block", labelBlock);
 
         int nCol =  header.getNoFast();
         int nRow =  header.getNoMedium();

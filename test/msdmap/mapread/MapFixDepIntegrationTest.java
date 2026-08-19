@@ -1,5 +1,6 @@
 package msdmap.mapread;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -81,7 +82,10 @@ public class MapFixDepIntegrationTest {
     // "label"/"Map title" carry only the current label - the depositor's Relion line
     // must not leak into them, only into "label_block".
     assertReportLabelIsCurrentOnly(report, MapHeader.makeSystemLabel("D_1292121466"));
-    assertTrue(report.getJSONObject("output_header_long").getString("label_block").contains("Relion"));
+    JSONArray labelBlock = report.getJSONObject("output_header_long").getJSONArray("label_block");
+    assertEquals(2, labelBlock.length());
+    assertEquals(MapHeader.makeSystemLabel("D_1292121466"), labelBlock.getString(0).trim());
+    assertTrue(labelBlock.getString(1).trim().startsWith("Relion"));
   }
 
   @Test
@@ -96,7 +100,10 @@ public class MapFixDepIntegrationTest {
     assertTrue(header.getLabel(1).trim().startsWith("ChimeraX"));
 
     assertReportLabelIsCurrentOnly(report, MapHeader.makeSystemLabel("D_1292153729"));
-    assertTrue(report.getJSONObject("output_header_long").getString("label_block").contains("ChimeraX"));
+    JSONArray labelBlock = report.getJSONObject("output_header_long").getJSONArray("label_block");
+    assertEquals(2, labelBlock.length());
+    assertEquals(MapHeader.makeSystemLabel("D_1292153729"), labelBlock.getString(0).trim());
+    assertTrue(labelBlock.getString(1).trim().startsWith("ChimeraX"));
   }
 
   @Test
@@ -124,9 +131,10 @@ public class MapFixDepIntegrationTest {
     // The demoted D_1292121466 changelog entry must not leak into "label"/"Map title",
     // only into "label_block" - this is exactly the scenario Ezra's manual test hit.
     assertReportLabelIsCurrentOnly(report, MapHeader.makeSystemLabel("EMD-112358"));
-    String labelBlock = report.getJSONObject("output_header_long").getString("label_block");
-    assertTrue(labelBlock.contains("D_1292121466"),
-        "expected label_block to still contain the demoted history entry but was <" + labelBlock + ">");
+    JSONArray labelBlock = report.getJSONObject("output_header_long").getJSONArray("label_block");
+    assertEquals(2, labelBlock.length());
+    assertEquals(MapHeader.makeSystemLabel("EMD-112358"), labelBlock.getString(0).trim());
+    assertDemotedForm(labelBlock.getString(1).trim(), "D_1292121466");
   }
 
   @Test
