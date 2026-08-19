@@ -311,8 +311,13 @@ public class DAInternals {
                 label += " ";
             }
         }
-        // Escape all double quotes for conversion to JSON
-        store.put("label", label);
+        // "label" is the current label only, matching what actually gets written to
+        // _em_map.label downstream - the full block (current + changelog + depositor
+        // content) is kept separately in "label_block" so nothing is lost, but callers
+        // that just want the current value don't have to parse it back out of a blob.
+        String currentLabel = nLabel > 0 ? header.getLabel(0).replaceAll("\\p{Cntrl}", "") : "";
+        store.put("label", currentLabel);
+        store.put("label_block", label);
 
         int nCol =  header.getNoFast();
         int nRow =  header.getNoMedium();
@@ -417,8 +422,12 @@ public class DAInternals {
                 label += " ";
             }
         }
+        // "Map title" is the current label only - it's shown verbatim to depositors in
+        // the DepUI upload summary, so it must not include changelog/depositor lines.
+        // The Chimera-rotation scan above still runs over every line, unaffected.
+        String currentLabel = nLabel > 0 ? header.getLabel(0).replaceAll("\\p{Cntrl}", "") : "";
         // Escape all double quotes for conversion to JSON
-        store.put("Map title", label.replace("\"", "\\\""));
+        store.put("Map title", currentLabel.replace("\"", "\\\""));
         
         String mode = new String();
         switch (header.getMapMode()){

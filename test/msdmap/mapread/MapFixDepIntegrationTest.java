@@ -1,5 +1,6 @@
 package msdmap.mapread;
 
+import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -19,18 +20,22 @@ public class MapFixDepIntegrationTest {
 
   private static final String JAR = "build/mapFixDep.jar";
 
-  private static void runMapFixDep(String in, String out, String voxel, String label) throws Exception {
+  private static JSONObject runMapFixDep(String in, String out, String voxel, String label) throws Exception {
     String javaBin = System.getProperty("java.home") + File.separator + "bin" + File.separator + "java";
     ProcessBuilder pb = new ProcessBuilder(
         javaBin, "-jar", JAR,
         "-in", in, "-out", out,
         "-voxel", voxel, voxel, voxel,
         "-label", label);
-    pb.redirectErrorStream(true);
+    // DAInternals writes its debug noise to real stderr and only the final JSON to real
+    // stdout (mirroring RcsbDpUtility, which always keeps them as two separate files) -
+    // merging the streams here would interleave that noise ahead of the JSON.
     Process process = pb.start();
-    String output = new String(process.getInputStream().readAllBytes());
+    String stdout = new String(process.getInputStream().readAllBytes());
+    String stderr = new String(process.getErrorStream().readAllBytes());
     int exit = process.waitFor();
-    assertEquals(0, exit, "mapFixDep.jar exited non-zero. Output:\n" + output);
+    assertEquals(0, exit, "mapFixDep.jar exited non-zero.\nstdout:\n" + stdout + "\nstderr:\n" + stderr);
+    return new JSONObject(stdout);
   }
 
   private static MapHeader readLabels(String path) throws Exception {
@@ -55,28 +60,43 @@ public class MapFixDepIntegrationTest {
         + " but was <" + actual + ">");
   }
 
+  private static void assertReportLabelIsCurrentOnly(JSONObject report, String expectedCurrentLabel) {
+    JSONObject headerLong = report.getJSONObject("output_header_long");
+    assertEquals(expectedCurrentLabel, headerLong.getString("label").trim());
+    JSONObject headerOut = report.getJSONObject("output_header");
+    assertEquals(expectedCurrentLabel, headerOut.getString("Map title").trim());
+  }
+
   @Test
   void relionUploadKeepsDepositorLabelAfterSystemLabel(@TempDir Path tempDir) throws Exception {
     String out = tempDir.resolve("relion.converted.map").toString();
-    runMapFixDep("sample-data/D_1292121466_em-volume-upload_P1.map.V1", out,
+    JSONObject report = runMapFixDep("sample-data/D_1292121466_em-volume-upload_P1.map.V1", out,
         "1.2194290161132812", "D_1292121466");
 
     MapHeader header = readLabels(out);
     assertEquals(2, header.getNLabels());
     assertEquals(MapHeader.makeSystemLabel("D_1292121466"), header.getLabel(0).trim());
     assertTrue(header.getLabel(1).trim().startsWith("Relion"));
+
+    // "label"/"Map title" carry only the current label - the depositor's Relion line
+    // must not leak into them, only into "label_block".
+    assertReportLabelIsCurrentOnly(report, MapHeader.makeSystemLabel("D_1292121466"));
+    assertTrue(report.getJSONObject("output_header_long").getString("label_block").contains("Relion"));
   }
 
   @Test
   void chimeraxUploadKeepsDepositorLabelAfterSystemLabel(@TempDir Path tempDir) throws Exception {
     String out = tempDir.resolve("chimerax.converted.map").toString();
-    runMapFixDep("sample-data/D_1292153729_em-volume-upload_P1.map.V1", out,
+    JSONObject report = runMapFixDep("sample-data/D_1292153729_em-volume-upload_P1.map.V1", out,
         "1.384615421295166", "D_1292153729");
 
     MapHeader header = readLabels(out);
     assertEquals(2, header.getNLabels());
     assertEquals(MapHeader.makeSystemLabel("D_1292153729"), header.getLabel(0).trim());
     assertTrue(header.getLabel(1).trim().startsWith("ChimeraX"));
+
+    assertReportLabelIsCurrentOnly(report, MapHeader.makeSystemLabel("D_1292153729"));
+    assertTrue(report.getJSONObject("output_header_long").getString("label_block").contains("ChimeraX"));
   }
 
   @Test
@@ -93,13 +113,20 @@ public class MapFixDepIntegrationTest {
   @Test
   void alreadySystemLabelledInputDemotesOldIdToHistory(@TempDir Path tempDir) throws Exception {
     String out = tempDir.resolve("relabel.converted.map").toString();
-    runMapFixDep("sample-data/D_1292121466_em-volume-upload_P1.map.V2", out,
+    JSONObject report = runMapFixDep("sample-data/D_1292121466_em-volume-upload_P1.map.V2", out,
         "1.2194000482559204", "EMD-112358");
 
     MapHeader header = readLabels(out);
     assertEquals(2, header.getNLabels());
     assertEquals(MapHeader.makeSystemLabel("EMD-112358"), header.getLabel(0).trim());
     assertDemotedForm(header.getLabel(1).trim(), "D_1292121466");
+
+    // The demoted D_1292121466 changelog entry must not leak into "label"/"Map title",
+    // only into "label_block" - this is exactly the scenario Ezra's manual test hit.
+    assertReportLabelIsCurrentOnly(report, MapHeader.makeSystemLabel("EMD-112358"));
+    String labelBlock = report.getJSONObject("output_header_long").getString("label_block");
+    assertTrue(labelBlock.contains("D_1292121466"),
+        "expected label_block to still contain the demoted history entry but was <" + labelBlock + ">");
   }
 
   @Test
